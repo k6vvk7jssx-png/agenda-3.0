@@ -1,7 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CalendarDays, Target, CheckCircle2, Coins } from "lucide-react"
+import { fetchTasks, toggleTaskCompletion } from "@/actions/task_actions"
+import { fetchFinances } from "@/actions/finance_actions"
 
-export default function Dashboard() {
+export default async function Dashboard() {
+  const tasks = await fetchTasks() || []
+  const finances = await fetchFinances() || []
+
+  const completedTasks = tasks.filter(t => t.is_completed).length
+  const totalTasks = tasks.length
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+
+  const totalBalance = finances.reduce((acc, curr) => curr.type === 'income' ? acc + Number(curr.amount) : acc - Number(curr.amount), 0)
+
+  const upNextTask = tasks.find(t => !t.is_completed)
+
   return (
     <div className="flex flex-col gap-8 w-full max-w-6xl mx-auto">
       <div>
@@ -17,9 +30,9 @@ export default function Dashboard() {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">2/5 Hours</div>
+            <div className="text-2xl font-bold">Smart Planner</div>
             <p className="text-xs text-muted-foreground border-t pt-2 mt-4">
-              <span className="text-primary font-medium">Next:</span> Physics Chap 3
+              <span className="text-primary font-medium">Status:</span> Connected to AI
             </p>
           </CardContent>
         </Card>
@@ -31,9 +44,9 @@ export default function Dashboard() {
             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3/8</div>
+            <div className="text-2xl font-bold">{completedTasks}/{totalTasks}</div>
             <p className="text-xs text-muted-foreground border-t pt-2 mt-4">
-              You are 35% complete today
+              You are {completionRate}% complete
             </p>
           </CardContent>
         </Card>
@@ -41,13 +54,13 @@ export default function Dashboard() {
         {/* Bilancio Odierno */}
         <Card className="bg-background/50 backdrop-blur-xl border-border/50 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">-$14.50</div>
+            <div className="text-2xl font-bold">${totalBalance.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground border-t pt-2 mt-4">
-              Includes 2 expense records
+              Includes {finances.length} records
             </p>
           </CardContent>
         </Card>
@@ -59,20 +72,40 @@ export default function Dashboard() {
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold mt-1">Gym Workout</div>
-            <p className="text-sm text-muted-foreground">17:00 - 18:30</p>
+            <div className="text-xl font-bold mt-1 line-clamp-1">{upNextTask ? upNextTask.title : "All clear!"}</div>
+            <p className="text-sm text-muted-foreground">{upNextTask ? new Date(upNextTask.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Enjoy your rest."}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 mt-4">
         {/* Lista Task */}
-        <Card className="bg-background/50 backdrop-blur-xl border-border/50 shadow-sm h-[400px]">
+        <Card className="bg-background/50 backdrop-blur-xl border-border/50 shadow-sm h-[400px] overflow-y-auto">
           <CardHeader>
             <CardTitle>Schedule</CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-center text-muted-foreground h-64 border-t border-dashed">
-            [Schedule List Placeholder]
+          <CardContent className="flex flex-col gap-4">
+            {tasks.length === 0 ? (
+              <div className="text-muted-foreground text-center py-10 border-t border-dashed">No tasks yet. Use the + button to add one!</div>
+            ) : (
+              tasks.map((task: any) => (
+                <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg bg-card/50">
+                  <div className="flex flex-col">
+                    <span className={`font-medium ${task.is_completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(task.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {" - "}
+                      {new Date(task.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className={`text-xs px-2 py-1 rounded-full ${task.is_completed ? 'bg-green-500/20 text-green-500' : 'bg-primary/20 text-primary'}`}>
+                      {task.is_completed ? 'Done' : 'Pending'}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -83,8 +116,8 @@ export default function Dashboard() {
               <span className="text-xl">✨</span> AI Weekly Insight
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm leading-relaxed text-muted-foreground h-64 border-t border-primary/10 pt-4">
-            <p>"Based on your past 7 days, you perform 20% better in your study sessions when you work out in the morning. Consider moving your gym schedule earlier!"</p>
+          <CardContent className="text-sm leading-relaxed text-muted-foreground h-64 border-t border-primary/10 pt-4 flex items-center justify-center text-center px-6">
+            <p>"I have successfully linked your data to the cloud Database! As you accumulate tasks and financial records, I'll be able to cross-reference your lifestyle habits and give you personalized insights here."</p>
           </CardContent>
         </Card>
       </div>

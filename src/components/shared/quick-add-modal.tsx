@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import axios from "axios"
+import { addFinance } from "@/actions/finance_actions"
+import { addTask } from "@/actions/task_actions"
 
 export function QuickAddModal() {
     const [open, setOpen] = useState(false)
@@ -32,15 +34,16 @@ export function QuickAddModal() {
             const res = await axios.post("/api/python/nlp", { text: inputText })
             const data = res.data
 
-            // 2. Controllo risposta LLM ed esecuzione Task (Mock fino al deploy supabase backend)
+            // 2. Esecuzione Reale Task/Finance su Supabase
             if (data.type === "finance") {
-                setResultMsg(`Aggiunta transazione serverless! ${data.finance_type === "income" ? '+' : '-'}$${data.amount} per ${data.description}`)
-                // In futuro si chiamerà qui `addFinance` server action
+                await addFinance(data.finance_type, parseFloat(data.amount) || 0, data.category || '', data.description || inputText)
+                setResultMsg(`Transazione salvata in DB! ${data.finance_type === "income" ? '+' : '-'}$${data.amount} per ${data.category || 'spesa'}`)
             } else if (data.type === "task") {
-                setResultMsg(`Aggiunto Task serverless! "${data.title}" per ${data.hours} ore.`)
-                // In futuro si chiamerà qui `addTask` server action
+                await addTask(data.title || inputText, parseFloat(data.hours) || 1)
+                setResultMsg(`Task aggiunto nel calendario DB! "${data.title}" per ${data.hours} ore.`)
             } else {
-                setResultMsg("Errore di decodifica JSON dall'AI.")
+                setResultMsg("Errore di classificazione AI. Salvato come task generale.")
+                await addTask(inputText, 1)
             }
 
             setTimeout(() => {

@@ -40,3 +40,29 @@ export async function toggleTaskCompletion(taskId: string, currentStatus: boolea
     revalidatePath("/")
     revalidatePath("/calendar")
 }
+
+export async function addTask(title: string, hours: number) {
+    const { userId } = await auth()
+    if (!userId) throw new Error("Unauthorized")
+
+    const startTime = new Date()
+    const endTime = new Date(startTime.getTime() + hours * 60 * 60 * 1000)
+
+    const { error } = await supabase
+        .from("tasks")
+        .insert({
+            user_id: userId,
+            title,
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
+            is_completed: false
+        })
+
+    if (error) {
+        console.error("Error adding task:", error)
+        throw new Error("Failed to add task")
+    }
+
+    revalidatePath("/")
+    revalidatePath("/calendar")
+}
