@@ -12,9 +12,9 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import axios from "axios"
 import { addFinance } from "@/actions/finance_actions"
 import { addTask } from "@/actions/task_actions"
+import { analyzeTextAI } from "@/actions/ai_actions"
 
 export function QuickAddModal() {
     const [open, setOpen] = useState(false)
@@ -30,9 +30,8 @@ export function QuickAddModal() {
         setResultMsg("")
 
         try {
-            // 1. Chiamata NLP in Python (proxy locale via Next.js rewrites)
-            const res = await axios.post("/api/python/nlp", { text: inputText })
-            const data = res.data
+            // 1. Chiamata NLP tramite Next.js Server Action
+            const data = await analyzeTextAI(inputText)
 
             // 2. Esecuzione Reale Task/Finance su Supabase
             if (data.type === "finance") {
@@ -52,9 +51,9 @@ export function QuickAddModal() {
                 setResultMsg("")
             }, 2500)
 
-        } catch (error) {
+        } catch (error: any) {
             console.error(error)
-            setResultMsg("Errore backend. Assicurati che l'API Key e il server Python siano online.")
+            setResultMsg(error.message || "Errore. Assicurati che l'API Key di Grok sia configurata.")
         } finally {
             setIsLoading(false)
         }
