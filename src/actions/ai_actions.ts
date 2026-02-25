@@ -1,7 +1,5 @@
 "use server"
 
-import OpenAI from "openai"
-
 const SYSTEM_PROMPT = `
 Sei un analista dati personale per una applicazione stile 'Agenda'. Il tuo obiettivo è convertire una frase in linguaggio naturale in un oggetto JSON rigoroso e senza markdown. 
 Sei una macchina, NON DEVI restituire testo discorsivo. SOLO un oggetto JSON valido.
@@ -25,28 +23,41 @@ Se è "task", deve avere: "title" (titolo dell'attività), "hours" (numero float
 export async function analyzeTextAI(text: string) {
     if (!text) throw new Error("Text is required")
 
-    // Usa GROK o OPENAI (default a Grok/xAI se base_url configurato)
+    // Usa GROK o OPENAI 
     const apiKey = process.env.GROK_API_KEY || process.env.OPENAI_API_KEY
     if (!apiKey) {
         throw new Error("API Key mancante nel Server!")
     }
 
-    const client = new OpenAI({
-        apiKey: apiKey,
-        baseURL: process.env.GROK_API_KEY ? "https://api.x.ai/v1" : undefined
-    })
+    const isGrok = !!process.env.GROK_API_KEY;
+    const apiUrl = isGrok ? "https://api.x.ai/v1/chat/completions" : "https://api.openai.com/v1/chat/completions";
+    const model = isGrok ? "grok-2-latest" : "gpt-4o-mini";
 
     try {
-        const response = await client.chat.completions.create({
-            model: process.env.GROK_API_KEY ? "grok-2-latest" : "gpt-4o-mini",
-            messages: [
-                { role: "system", content: SYSTEM_PROMPT },
-                { role: "user", content: text }
-            ],
-            temperature: 0.0
-        })
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: [
+                    { role: "system", content: SYSTEM_PROMPT },
+                    { role: "user", content: text }
+                ],
+                temperature: 0.0
+            }),
+            cache: 'no-store'
+        });
 
-        let content = response.choices[0].message.content?.trim() || "{}"
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP Error ${response.status}: ${errorText}`);
+        }
+
+        const responseData = await response.json();
+        let content = responseData.choices[0]?.message?.content?.trim() || "{}";
 
         // Pulizia Markdown
         if (content.startsWith("```json")) {
